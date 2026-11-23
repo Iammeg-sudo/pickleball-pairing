@@ -1,7 +1,7 @@
 // 資料層：有 Firebase 設定時使用 Firestore＋匿名身分（辨識這支手機），否則使用本機 DEMO 資料
 // 球友不需任何個資，成績以「名字」跨場次累積（名字先登記先贏）
 // 場主綁定手機：號碼只在手機上做 SHA-256 加密，資料庫只存加密後的亂碼，且設定為任何人都讀不到
-import { firebaseConfig } from './config.js?v=20261205';
+import { firebaseConfig } from './config.js?v=20261206';
 
 const DEMO = !firebaseConfig.apiKey || firebaseConfig.apiKey.startsWith('YOUR');
 export const PHONE_RE = /^09\d{8}$/;
@@ -61,6 +61,15 @@ async function firebaseStore() {
     newId: () => F.doc(F.collection(db, 'sessions')).id,
     setPlayer: (sid, pid, data) => F.setDoc(F.doc(col(sid, 'players'), pid), data, { merge: true }),
     removePlayer: (sid, pid) => F.deleteDoc(F.doc(col(sid, 'players'), pid)),
+    // 刪除整個場次：報名、配對、場主加密資料、場次本身一次刪掉（同一批，要嘛全刪要嘛都不刪）
+    async deleteSession(sid, playerIds, matchIds) {
+      const b = F.writeBatch(db);
+      for (const id of playerIds) b.delete(F.doc(col(sid, 'players'), id));
+      for (const id of matchIds) b.delete(F.doc(col(sid, 'matches'), id));
+      b.delete(F.doc(db, 'sessions', sid, 'private', 'host'));
+      b.delete(S(sid));
+      await b.commit();
+    },
     watchMatches: (sid, cb, err) => F.onSnapshot(col(sid, 'matches'), s => cb(docs(s)), err),
     // 需要 matches.names（集合群組、陣列包含）索引，見 README
     matchesByName: async name => withSid(await F.getDocs(F.query(F.collectionGroup(db, 'matches'), F.where('names', 'array-contains', name)))),
@@ -137,6 +146,12 @@ function demoStore() {
     async removePlayer(sid, pid) {
       if (pid !== uid && !isHost(sid)) return deny();
       delete data.players[sid]?.[pid]; save();
+    },
+    async deleteSession(sid) {
+      if (!isHost(sid)) return deny();
+      if (Object.values(data.matches[sid] || {}).some(m => m.scoreA != null)) return deny();
+      for (const k of ['sessions', 'players', 'matches', 'private']) delete data[k][sid];
+      save();
     },
     watchMatches: (sid, cb) => watch(() => cb(list(data.matches[sid]))),
     matchesByName: async name => flat('matches').filter(m => (m.names || []).includes(name)),

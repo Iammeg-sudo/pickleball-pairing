@@ -1,6 +1,6 @@
-import { store, PHONE_RE, phoneHash } from './store.js?v=20261205';
-import { buildSchedule, scheduleStats } from './pairing.js?v=20261205';
-import { DEFAULT_VENUES } from './config.js?v=20261205';
+import { store, PHONE_RE, phoneHash } from './store.js?v=20261206';
+import { buildSchedule, scheduleStats } from './pairing.js?v=20261206';
+import { DEFAULT_VENUES } from './config.js?v=20261206';
 
 // ================= 小工具 =================
 const $ = id => document.getElementById(id);
@@ -269,6 +269,16 @@ function initSession() {
     } catch (err) { fail(err); pickCount(); }
   });
   $('drawBtn').addEventListener('click', draw);
+  $('deleteBtn').addEventListener('click', async () => {
+    if (state.matches.some(scored)) return toast('這場已經有比分，不能刪除（避免大家的成績消失）');
+    const s = state.session;
+    if (!confirm(`確定刪除「${s.title}」？\n報名名單（${state.players.length} 人）和配對會一起刪掉，刪除後無法復原。`)) return;
+    try {
+      await store.deleteSession(sid, state.players.map(p => p.id), state.matches.map(m => m.id));
+      toast('場次已刪除');
+      setTimeout(() => (location.href = './'), 600);
+    } catch (err) { fail(err); }
+  });
   $('endBtn').addEventListener('click', async () => {
     const empty = state.matches.filter(m => !scored(m)).length;
     if (!confirm(`確定結束賽事？比分會立即鎖定，任何人都不能再修改。${empty ? `\n還有 ${empty} 局沒有比分。` : ''}`)) return;
@@ -398,6 +408,11 @@ function render() {
     $('drawBtn').textContent = drawn ? (lockedTo ? `重排第 ${lockedTo + 1} 輪之後的配對` : '重新產生配對') : '產生配對';
     $('drawBtn').disabled = state.players.length < 4 || lockedTo >= R || !scoreOpen();
     $('endBtn').hidden = !scoreOpen();
+    const hasScore = state.matches.some(scored);
+    $('deleteBtn').disabled = hasScore;
+    $('deleteHint').textContent = hasScore
+      ? '這場已經有比分，不能刪除，避免大家的成績消失。'
+      : '開錯或重複開的場次可以刪掉；報名名單和配對會一起刪除，無法復原。';
     $('endHint').textContent = scoreOpen()
       ? `按下後比分立即鎖定、不能再修改；沒按的話，${deadlineText().split(' ')[1]}（結束後 ${GRACE_MIN} 分鐘）自動鎖定。`
       : `${closedReason()}，比分已鎖定。`;
