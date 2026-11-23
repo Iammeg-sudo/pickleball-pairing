@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <title>匹克球雙打配對</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=Space+Grotesk:wght@500;700&display=swap">
+  <link rel="stylesheet" href="css/style.css?v=20261202">
+</head>
+<body>
+  <div id="demoBar" class="demo" hidden></div>
+
+  <div id="app">
+    <header class="top">
+      <div class="topbar">
+        <a class="brand" href="./"><span class="ball" aria-hidden="true"></span>匹克球雙打配對</a>
+      </div>
+      <nav class="mainnav" id="mainnav">
+        <a href="./" data-p="home">場次</a>
+        <a href="?p=me" data-p="me">我的成績</a>
+        <a href="?p=rank" data-p="rank">比讚榜</a>
+      </nav>
+      <div id="hdr"></div>
+    </header>
+
+    <!-- 首頁：場次列表＋開新場次 -->
+    <main id="homeView" hidden>
+      <section class="card" id="createCard">
+        <div class="card-head">
+          <h2>開新場次</h2>
+          <button class="btn primary" id="openCreate" type="button">＋ 開場次</button>
+        </div>
+        <form id="createForm" class="grid-form" hidden>
+          <label>日期<input id="cDate" type="date" required></label>
+          <div class="venue-field">
+            <label for="cVenue">場地</label>
+            <div class="row"><select id="cVenue" required></select><button class="btn" type="button" data-add-venue="c">新增場地</button></div>
+          </div>
+          <label>開始時間<input id="cStart" type="time" required value="19:00"></label>
+          <label>總時長（分鐘）<input id="cDur" type="number" min="30" max="480" step="5" required value="120"></label>
+          <label>每局（分鐘）<input id="cGame" type="number" min="5" max="60" required value="15"></label>
+          <label>場地數（面）<input id="cCourts" type="number" min="1" max="12" required value="2"></label>
+          <div class="wide title-preview">場次名稱：<b id="cTitlePreview"></b></div>
+          <button class="btn primary wide" type="submit">建立場次</button>
+        </form>
+      </section>
+      <section id="sessionList"></section>
+    </main>
+
+    <!-- 場次頁 -->
+    <main id="sessionView" hidden>
+      <div id="share" class="share" hidden>
+        <span>報名連結</span>
+        <input id="shareUrl" readonly aria-label="報名連結">
+        <button class="btn" id="copyBtn" type="button">複製</button>
+      </div>
+
+      <section class="card" id="joinCard">
+        <form id="joinForm" class="row-form">
+          <label for="joinName" class="lbl">你是誰？</label>
+          <div class="row">
+            <input id="joinName" maxlength="12" placeholder="輸入名字，例如：小美" autocomplete="nickname" required>
+            <button class="btn primary" type="submit">報名</button>
+          </div>
+          <p class="err" id="joinErr" role="alert"></p>
+          <p class="hint">名字先登記先用，別人就不能再用；每次都輸入同一個名字，成績就會一直累積。</p>
+        </form>
+        <div id="joinedBox" hidden></div>
+      </section>
+
+      <section class="card host" id="hostPanel" hidden>
+        <h2>場主設定</h2>
+        <form id="settingsForm" class="grid-form">
+          <label>日期<input id="sDate" type="date" required></label>
+          <div class="venue-field">
+            <label for="sVenue">場地</label>
+            <div class="row"><select id="sVenue" required></select><button class="btn" type="button" data-add-venue="s">新增場地</button></div>
+          </div>
+          <label>開始時間<input id="sStart" type="time" required></label>
+          <label>總時長（分鐘）<input id="sDur" type="number" min="30" max="480" step="5" required></label>
+          <label>每局（分鐘）<input id="sGame" type="number" min="5" max="60" required></label>
+          <label>場地數（面）<input id="sCourts" type="number" min="1" max="12" required></label>
+          <div class="wide title-preview">場次名稱：<b id="sTitlePreview"></b></div>
+          <button class="btn wide" type="submit">儲存設定</button>
+        </form>
+        <button class="btn" id="pickBtn" type="button">從參加過的球友勾選加入</button>
+        <form id="addForm" class="row-form">
+          <label for="addName" class="lbl">或輸入名字代為報名</label>
+          <div class="row">
+            <input id="addName" maxlength="12" placeholder="名字" required>
+            <button class="btn" type="submit">加入</button>
+          </div>
+        </form>
+        <div class="draw">
+          <button class="btn primary big" id="drawBtn" type="button">產生配對</button>
+          <p class="hint" id="drawHint"></p>
+        </div>
+        <div class="draw end">
+          <button class="btn danger big" id="endBtn" type="button">結束賽事（鎖定比分）</button>
+          <p class="hint" id="endHint"></p>
+        </div>
+      </section>
+
+      <nav class="tabs" id="tabs">
+        <button data-tab="mine" class="on" type="button">我的賽程</button>
+        <button data-tab="all" type="button">全部賽程</button>
+        <button data-tab="rank" type="button">本場戰績</button>
+        <button data-tab="list" type="button">名單</button>
+      </nav>
+      <section id="view"></section>
+      <p class="reclaim" id="reclaimBox" hidden>場主換了手機？<button class="link" id="reclaimBtn" type="button">用手機號碼取回管理權</button></p>
+    </main>
+
+    <!-- 我的成果 -->
+    <main id="meView" hidden></main>
+    <!-- 比讚榜 -->
+    <main id="rankView" hidden></main>
+    <main id="msgView" hidden></main>
+  </div>
+
+  <!-- 場主手機（綁定／取回） -->
+  <dialog id="phoneDlg">
+    <form id="phoneForm" novalidate>
+      <h3 id="phoneTitle">綁定場主手機</h3>
+      <p class="hint" id="phoneDesc"></p>
+      <label>手機號碼<input id="phoneInput" type="tel" inputmode="numeric" maxlength="10" placeholder="0912345678" autocomplete="off"></label>
+      <p class="hint lock">號碼只在你的手機上加密，系統只存加密後的亂碼，任何人（包括其他球友和管理者）都看不到你的號碼。</p>
+      <p class="err" id="phoneErr" role="alert"></p>
+      <div class="dlg-actions">
+        <button class="btn" type="button" id="phoneCancel">取消</button>
+        <button class="btn primary" type="submit" id="phoneSubmit">確定</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 勾選參加過的球友 -->
+  <dialog id="pickDlg">
+    <form id="pickForm">
+      <h3>勾選本場球友</h3>
+      <p class="hint">以下是參加過其他場次的球友，依參加次數排序。</p>
+      <input id="pickSearch" placeholder="搜尋名字" aria-label="搜尋名字" autocomplete="off">
+      <div id="pickList" class="pick-list"></div>
+      <div class="dlg-actions">
+        <button class="btn" type="button" id="pickCancel">取消</button>
+        <button class="btn primary" type="submit" id="pickAdd" disabled>加入</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 新增場地 -->
+  <dialog id="venueDlg">
+    <form id="venueForm">
+      <h3>新增場地</h3>
+      <label>場地名稱<input id="venueName" maxlength="20" required placeholder="例如：南港運動中心"></label>
+      <p class="err" id="venueErr"></p>
+      <div class="dlg-actions">
+        <button class="btn" type="button" id="venueCancel">取消</button>
+        <button class="btn primary" type="submit">新增</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- 比分 -->
+  <dialog id="scoreDlg">
+    <form id="scoreForm">
+      <h3 id="scoreTitle"></h3>
+      <div class="score-grid">
+        <div class="side a"><div class="names" id="scoreNamesA"></div><input id="scoreA" type="number" inputmode="numeric" min="0" max="99" required aria-label="A 隊分數"></div>
+        <div class="vs">:</div>
+        <div class="side b"><div class="names" id="scoreNamesB"></div><input id="scoreB" type="number" inputmode="numeric" min="0" max="99" required aria-label="B 隊分數"></div>
+      </div>
+      <p class="err" id="scoreErr"></p>
+      <div class="dlg-actions">
+        <button class="btn" type="button" id="scoreCancel">取消</button>
+        <button class="btn primary" type="submit">儲存比分</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" hidden></div>
+  <script type="module" src="js/app.js?v=20261202"></script>
+</body>
+</html>
