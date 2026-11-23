@@ -76,6 +76,9 @@ input:focus, select:focus { outline: 2px solid var(--court); outline-offset: 0; 
 .btn:disabled { opacity: .45; cursor: not-allowed; }
 .link { background: none; border: 0; color: var(--court); cursor: pointer; font-size: 14px; padding: 2px 4px; }
 .link.danger { color: var(--lose); }
+.link:disabled { color: var(--dim); cursor: not-allowed; text-decoration: none; }
+.draw.delete { align-items: flex-start; }
+.draw.delete .link { font-weight: 700; padding-left: 0; }
 .draw { display: flex; flex-direction: column; gap: 6px; border-top: 1px dashed var(--line); padding-top: 14px; }
 
 .share { display: flex; align-items: center; gap: 8px; background: var(--court-l); border-radius: 12px; padding: 8px 8px 8px 14px; font-size: 13px; font-weight: 700; color: var(--court-d); }
