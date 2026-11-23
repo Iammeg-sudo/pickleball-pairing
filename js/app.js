@@ -1,6 +1,6 @@
-import { store, PHONE_RE, phoneHash } from './store.js?v=20261202';
-import { buildSchedule, scheduleStats } from './pairing.js?v=20261202';
-import { DEFAULT_VENUES } from './config.js?v=20261202';
+import { store, PHONE_RE, phoneHash } from './store.js?v=20261205';
+import { buildSchedule, scheduleStats } from './pairing.js?v=20261205';
+import { DEFAULT_VENUES } from './config.js?v=20261205';
 
 // ================= 小工具 =================
 const $ = id => document.getElementById(id);
@@ -31,7 +31,7 @@ const rememberName = n => { try { localStorage.setItem(NAME_KEY, n); } catch { }
 
 const params = new URLSearchParams(location.search);
 const sid = params.get('s');
-const page = sid ? 'session' : (['me', 'rank'].includes(params.get('p')) ? params.get('p') : 'home');
+const page = sid ? 'session' : (params.get('p') === 'me' ? 'me' : 'home');
 
 const state = { session: undefined, players: [], matches: [], tab: 'mine', viewAs: null, venues: [] };
 let drawDemo = () => { };
@@ -196,6 +196,7 @@ function initSession() {
   store.watchSession(sid, s => { state.session = s; onSession(); }, err);
   store.watchPlayers(sid, ps => { state.players = ps; render(); }, err);
   store.watchMatches(sid, ms => { state.matches = ms; render(); }, err);
+  crownsOnce().then(render); // 皇冠名單讀到後重畫一次
   // 每 30 秒重畫一次，時間到就自動把比分按鈕換成「已截止」
   setInterval(() => { if (!$('scoreDlg').open) render(); }, 30000);
 
@@ -330,7 +331,7 @@ function renderPick() {
     : list.map(x => {
       const inHere = here.has(x.name);
       return `<label class="pick ${inHere ? 'in' : ''}"><input type="checkbox" value="${esc(x.name)}" ${inHere ? 'checked disabled' : pick.sel.has(x.name) ? 'checked' : ''}>
-        <span>${esc(x.name)}</span><small>${inHere ? '已在名單' : `參加過 ${x.n} 場`}</small></label>`;
+        <span>${cn(x.name)}</span><small>${inHere ? '已在名單' : `參加過 ${x.n} 場`}</small></label>`;
     }).join('');
 }
 function pickCount() {
@@ -386,7 +387,7 @@ function render() {
   $('joinForm').hidden = !!me && !state.renaming;
   $('joinedBox').hidden = !me || !!state.renaming;
   if (me) {
-    $('joinedBox').innerHTML = `<div class="joined"><div><span class="tag">已報名</span><b>${esc(me.name)}</b></div>
+    $('joinedBox').innerHTML = `<div class="joined"><div><span class="tag">已報名</span><b>${cn(me.name)}</b></div>
       <div class="acts">${myInMatch ? '' : '<button class="link" data-act="rename" type="button">改名字</button>'}<button class="link danger" data-act="leave" type="button">取消報名</button></div></div>`;
   }
 
@@ -427,7 +428,7 @@ function scoreboard(m, map, mySide, mineView, who) {
   const rows = order.map(sd => {
     const team = sd === 'A' ? m.a : m.b, sc = sd === 'A' ? m.scoreA : m.scoreB;
     const label = mineView ? (sd === mySide ? '我方' : '對手') : '';
-    const names = team.map(id => id === who ? `<b>${esc(nameOf(id, map))}</b>` : esc(nameOf(id, map))).join('<i>・</i>');
+    const names = team.map(id => id === who ? `<b>${cn(nameOf(id, map))}</b>` : cn(nameOf(id, map))).join('<i>・</i>');
     return `<div class="trow side-${sd} ${sd === win ? 'win' : done ? 'lose' : ''} ${sd === mySide ? 'mine' : ''}">
       ${label ? `<span class="tlabel">${label}</span>` : ''}<span class="tnames">${names}</span>
       <span class="tscore">${done ? sc : '–'}</span><span class="tdot" aria-label="${sd === win ? '勝' : ''}"></span>
@@ -452,7 +453,7 @@ function renderMine(R, map, drawn) {
   const who = state.viewAs && map[state.viewAs] ? state.viewAs : (map[store.uid] ? store.uid : null);
   const picker = `<label class="picker">查看：<select id="viewAs">
       ${who ? '' : '<option value="">選擇球友</option>'}
-      ${opts.map(p => `<option value="${esc(p.id)}" ${p.id === who ? 'selected' : ''}>${esc(p.name)}${p.id === store.uid ? '（我）' : ''}</option>`).join('')}
+      ${opts.map(p => `<option value="${esc(p.id)}" ${p.id === who ? 'selected' : ''}>${esc(cnText(p.name))}${p.id === store.uid ? '（我）' : ''}</option>`).join('')}
     </select></label>`;
   if (!who) return `<div class="bar">${picker}</div><div class="empty"><p>你沒有報名這一場</p><p class="hint">可以在上方選擇其他球友，查看他們的賽程。</p></div>`;
 
@@ -496,7 +497,7 @@ function renderAll(R, map, drawn) {
         <span class="court">${m.court} 號場</span>
         ${scoreboard(m, map, m.a.includes(store.uid) ? 'A' : m.b.includes(store.uid) ? 'B' : '', false, store.uid)}
       </div>`).join('')}
-      ${rest.length ? `<div class="restline">休息：${rest.map(x => esc(nameOf(x, map))).join('、')}</div>` : ''}
+      ${rest.length ? `<div class="restline">休息：${rest.map(x => cn(nameOf(x, map))).join('、')}</div>` : ''}
     </article>`;
   }
   return renderQuality(R, ids) + `<div class="rounds">${html}</div>`;
@@ -541,15 +542,15 @@ function renderRank(map) {
     .sort((a, b) => b.w - a.w || (b.pf - b.pa) - (a.pf - a.pa) || b.pf - a.pf);
   if (!rows.length) return `<div class="empty"><p>還沒有比分</p><p class="hint">每局結束後，由該局的四位球員輸入比分，戰績會自動統計。</p></div>`;
   return `<div class="table-wrap"><table class="rank"><thead><tr><th>#</th><th>球友</th><th>局數</th><th>勝</th><th>敗</th><th>得分</th><th>失分</th><th>淨分</th></tr></thead><tbody>
-    ${rows.map((r, i) => `<tr class="${r.id === store.uid ? 'me' : ''}"><td>${i + 1}</td><td>${esc(nameOf(r.id, map))}</td><td>${r.g}</td><td>${r.w}</td><td>${r.l}</td><td>${r.pf}</td><td>${r.pa}</td><td>${signed(r.pf - r.pa)}</td></tr>`).join('')}
+    ${rows.map((r, i) => `<tr class="${r.id === store.uid ? 'me' : ''}"><td>${i + 1}</td><td>${cn(nameOf(r.id, map))}</td><td>${r.g}</td><td>${r.w}</td><td>${r.l}</td><td>${r.pf}</td><td>${r.pa}</td><td>${signed(r.pf - r.pa)}</td></tr>`).join('')}
   </tbody></table></div><p class="hint">排名依勝場數，再比淨分（得分 − 失分）。</p>`;
 }
 
 function renderList() {
   const ps = sortedPlayers();
   if (!ps.length) return `<div class="empty"><p>還沒有人報名</p><p class="hint">把報名連結傳到群組，大家輸入名字就完成報名。</p></div>`;
-  return `<ol class="plist">${ps.map(p => `<li><span>${esc(p.name)}${p.id === store.uid ? ' <span class="tag">我</span>' : ''}${p.byHost ? ' <span class="tag dim">代報名</span>' : ''}${hostsOf(state.session).includes(p.id) ? ' <span class="tag host">場主</span>' : ''}</span>
-    ${isHost() ? `<button class="link danger" data-remove="${esc(p.id)}" type="button">移除</button>` : ''}</li>`).join('')}</ol>`;
+  return `<ol class="plist">${ps.map(p => `<li><span>${cn(p.name)}${p.id === store.uid ? ' <span class="tag">我</span>' : ''}${p.byHost ? ' <span class="tag dim">代報名</span>' : ''}${hostsOf(state.session).includes(p.id) ? ' <span class="tag host">場主</span>' : ''}</span>
+    ${isHost() ? `<button class="link danger" data-remove="${esc(p.id)}" type="button">移除</button>` : ''}</li>`).join('')}</ol>${crown.set.size ? `<p class="hint">${CROWN_SVG} 常客：參加場次前三名的球友（至少 2 場）</p>` : ''}`;
 }
 
 async function onViewClick(e) {
@@ -615,8 +616,8 @@ function openScore(mid) {
   scoring = mid;
   const map = playerMap();
   $('scoreTitle').textContent = `第 ${m.round} 輪・${m.court} 號場`;
-  $('scoreNamesA').innerHTML = m.a.map(x => esc(nameOf(x, map))).join('<br>');
-  $('scoreNamesB').innerHTML = m.b.map(x => esc(nameOf(x, map))).join('<br>');
+  $('scoreNamesA').innerHTML = m.a.map(x => cn(nameOf(x, map))).join('<br>');
+  $('scoreNamesB').innerHTML = m.b.map(x => cn(nameOf(x, map))).join('<br>');
   $('scoreA').value = m.scoreA ?? ''; $('scoreB').value = m.scoreB ?? '';
   $('scoreErr').textContent = '';
   $('scoreDlg').showModal();
@@ -645,7 +646,7 @@ async function lookup(name) {
   if (!name) return;
   body.className = 'empty'; body.innerHTML = '<p>查詢中…</p>';
   let ms;
-  try { ms = await store.matchesByName(name); }
+  try { [ms] = await Promise.all([store.matchesByName(name), crownsOnce()]); }
   catch (err) {
     console.error(err);
     if (token === meToken) body.innerHTML = '<p>查詢失敗</p><p class="hint">如果是剛上線，請確認 Firestore 已建立 README 所列的索引。</p>';
@@ -674,14 +675,14 @@ async function lookup(name) {
 
   body.className = 'me-body';
   body.innerHTML = `
-    <h2 class="sec">${esc(name)} 的成績</h2>
+    <h2 class="sec">${cn(name)} 的成績${crown.set.has(name) ? '<span class="crown-note">常客・已參加 ' + crown.count[name] + ' 場</span>' : ''}</h2>
     <div class="stats">
       <div><b>${perSession.length}</b><span>參加場次</span></div>
       <div><b>${all.g}</b><span>有比分的局數</span></div>
       <div><b>${all.w}<small>勝</small> ${all.l}<small>敗</small></b><span>勝率 ${rate}%</span></div>
       <div><b>${signed(all.pf - all.pa)}</b><span>累計淨分</span></div>
     </div>
-    <section class="card"><h2>最常一起打的搭檔</h2><ol class="partners">${topPartners.map(([p, c]) => `<li><span>${esc(p)}</span><b>${c} 局</b></li>`).join('')}</ol></section>
+    <section class="card"><h2>最常一起打的搭檔</h2><ol class="partners">${topPartners.map(([p, c]) => `<li><span>${cn(p)}</span><b>${c} 局</b></li>`).join('')}</ol></section>
     <h2 class="sec">每場紀錄</h2>
     <div class="sess-list">${perSession.map(({ s, r, n }) => `<a class="sess" href="?s=${esc(s.id)}">
       <div class="cal"><b>${dObj(s.date).getMonth() + 1}/${dObj(s.date).getDate()}</b><span>週${WEEK[dObj(s.date).getDay()]}</span></div>
@@ -689,56 +690,34 @@ async function lookup(name) {
     </a>`).join('')}</div>`;
 }
 
-// ================= 比讚榜（以名字計算參加場次） =================
-function initRankPage() {
-  $('rankView').hidden = false;
-  $('hdr').innerHTML = '<h1>比讚榜</h1><p class="sub">參加越多場排越前面，幫常來報到的球友按個讚！</p>';
-  const R = { likes: [], att: null };
-  const paint = () => renderRankPage(R);
-  store.watchLikes(ls => { R.likes = ls; paint(); }, e => console.error(e));
-  Promise.all([store.allSessions(), store.allPlayers()]).then(([ss, ps]) => {
+// ================= 皇冠：常來球敘的球友 =================
+// 規則：只算已經打過的場次（日期在今天以前或今天），參加場次排前三名（同場數並列）、且至少 2 場，名字旁戴皇冠
+const CROWN_TOP = 3, CROWN_MIN = 2;
+const CROWN_SVG = '<svg class="crown" viewBox="0 0 24 24" role="img" aria-label="常客"><title>常客：參加場次前三名</title><path d="M3 8.5l4.6 3.8L12 5l4.4 7.3L21 8.5l-1.8 9.5H4.8L3 8.5z"/><rect x="4.8" y="19" width="14.4" height="2" rx="1"/></svg>';
+const crown = { set: new Set(), count: {} };
+let crownReady = null;
+const crownsOnce = () => (crownReady ||= loadCrowns()); // 一個頁面只讀一次
+// 名字（已處理特殊字元）＋皇冠；給 HTML 用
+const cn = name => esc(name) + (crown.set.has(name) ? CROWN_SVG : '');
+// 給 <option> 這種不能放圖的地方用
+const cnText = name => name + (crown.set.has(name) ? ' 👑' : '');
+async function loadCrowns() {
+  try {
+    const [ss, ps] = await Promise.all([store.allSessions(), store.allPlayers()]);
     const t = today();
     const date = Object.fromEntries(ss.map(s => [s.id, s.date]));
-    R.att = {};
+    const seen = {};
     for (const p of ps) {
       const d = date[p.sid];
-      if (!d || d > t || !p.name) continue; // 只算已經打過的場次
-      const a = (R.att[p.name] ||= { n: 0, last: '', sids: new Set() });
-      if (a.sids.has(p.sid)) continue;
-      a.sids.add(p.sid); a.n++; if (d > a.last) a.last = d;
+      if (!d || d > t || !p.name) continue;
+      (seen[p.name] ||= new Set()).add(p.sid);
     }
-    paint();
-  }).catch(e => { console.error(e); $('rankView').innerHTML = '<div class="empty"><p>讀取失敗</p><p class="hint">請檢查網路後重新整理。</p></div>'; });
-  $('rankView').addEventListener('click', async e => {
-    const b = e.target.closest('[data-like]'); if (!b) return;
-    const key = b.dataset.like;
-    if (key === myName()) return toast('不能幫自己按讚喔');
-    const liked = R.likes.some(l => l.key === key && l.from === store.uid);
-    try { liked ? await store.unlike(key) : await store.like(key); } catch (err) { fail(err); }
-  });
-}
-function renderRankPage(R) {
-  const v = $('rankView');
-  if (!R.att) { v.innerHTML = '<div class="empty"><p>讀取中…</p></div>'; return; }
-  const likeN = {};
-  R.likes.forEach(l => (likeN[l.key] = (likeN[l.key] || 0) + 1));
-  const me = myName();
-  const rows = Object.entries(R.att).map(([name, a]) => ({ name, ...a, likes: likeN[name] || 0, mine: R.likes.some(l => l.key === name && l.from === store.uid) }))
-    .sort((a, b) => b.n - a.n || b.likes - a.likes || b.last.localeCompare(a.last));
-  if (!rows.length) { v.innerHTML = '<div class="empty"><p>還沒有人上榜</p><p class="hint">打完第一場之後，參加過的球友就會出現在這裡。</p></div>'; return; }
-  let rank = 0, prev = null;
-  v.innerHTML = `<ol class="leader">${rows.map((r, i) => {
-    if (r.n !== prev) { rank = i + 1; prev = r.n; }
-    return `<li class="${rank <= 3 ? 'podium p' + rank : ''} ${r.name === me ? 'me' : ''}">
-      <span class="pos">${rank}</span>
-      <a class="who" href="?p=me&n=${encodeURIComponent(r.name)}"><b>${esc(r.name)}</b><span>最近一次 ${esc(fmtDate(r.last))}</span></a>
-      <div class="cnt"><b>${r.n}</b><span>場</span></div>
-      <button class="like ${r.mine ? 'on' : ''}" data-like="${esc(r.name)}" type="button" ${r.name === me ? 'disabled' : ''} aria-pressed="${r.mine}" aria-label="幫 ${esc(r.name)} 按讚">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 10v11H3V10h4Zm2 11h8.3a2 2 0 0 0 2-1.6l1.4-7A2 2 0 0 0 18.7 10H14V5.5A2.5 2.5 0 0 0 11.5 3L9 10v11Z"/></svg>
-        <span>${r.likes}</span>
-      </button>
-    </li>`;
-  }).join('')}</ol><p class="hint">點名字可以看他的成績。同名的人會算在一起，報名時請用固定、好辨認的名字。</p>`;
+    crown.count = Object.fromEntries(Object.entries(seen).map(([n, s]) => [n, s.size]));
+    // 第 3 名的場數就是門檻；跟第 3 名一樣多場的也一起戴（並列）
+    const sorted = Object.values(crown.count).filter(n => n >= CROWN_MIN).sort((a, b) => b - a);
+    const cut = sorted.length ? sorted[Math.min(CROWN_TOP, sorted.length) - 1] : Infinity;
+    crown.set = new Set(Object.entries(crown.count).filter(([, n]) => n >= cut && n >= CROWN_MIN).map(([name]) => name));
+  } catch (e) { console.error(e); }
 }
 
 // ================= DEMO：模擬不同手機 =================
@@ -765,5 +744,4 @@ initPhoneDialog();
 initVenues();
 if (page === 'session') initSession();
 else if (page === 'me') initMe();
-else if (page === 'rank') initRankPage();
 else initHome();

@@ -1,7 +1,7 @@
 // 資料層：有 Firebase 設定時使用 Firestore＋匿名身分（辨識這支手機），否則使用本機 DEMO 資料
 // 球友不需任何個資，成績以「名字」跨場次累積（名字先登記先贏）
 // 場主綁定手機：號碼只在手機上做 SHA-256 加密，資料庫只存加密後的亂碼，且設定為任何人都讀不到
-import { firebaseConfig } from './config.js?v=20261202';
+import { firebaseConfig } from './config.js?v=20261205';
 
 const DEMO = !firebaseConfig.apiKey || firebaseConfig.apiKey.startsWith('YOUR');
 export const PHONE_RE = /^09\d{8}$/;
@@ -75,9 +75,6 @@ async function firebaseStore() {
 
     watchVenues: (cb, err) => F.onSnapshot(F.collection(db, 'venues'), s => cb(docs(s)), err),
     addVenue: name => F.addDoc(F.collection(db, 'venues'), { name, by: uid, createdAt: Date.now() }),
-    watchLikes: (cb, err) => F.onSnapshot(F.collection(db, 'likes'), s => cb(docs(s)), err),
-    like: key => F.setDoc(F.doc(db, 'likes', `${uid}_${key}`), { key, from: uid, at: Date.now() }),
-    unlike: key => F.deleteDoc(F.doc(db, 'likes', `${uid}_${key}`)),
   };
 }
 
@@ -87,7 +84,7 @@ function demoStore() {
   const rid = () => Math.random().toString(36).slice(2, 10);
   const load = () => { try { return JSON.parse(localStorage.getItem(KEY)) || {}; } catch { return {}; } };
   let data;
-  const init = () => { data = load(); for (const k of ['sessions', 'players', 'matches', 'venues', 'likes', 'names', 'hostKeys', 'private']) data[k] ||= {}; };
+  const init = () => { data = load(); for (const k of ['sessions', 'players', 'matches', 'venues', 'names', 'hostKeys', 'private']) data[k] ||= {}; };
   init();
   let uid = localStorage.getItem(UKEY) || rid();
   localStorage.setItem(UKEY, uid);
@@ -161,8 +158,5 @@ function demoStore() {
 
     watchVenues: cb => watch(() => cb(list(data.venues))),
     async addVenue(name) { data.venues[rid()] = { name, by: uid, createdAt: Date.now() }; save(); },
-    watchLikes: cb => watch(() => cb(list(data.likes))),
-    async like(key) { data.likes[`${uid}_${key}`] = { key, from: uid, at: Date.now() }; save(); },
-    async unlike(key) { delete data.likes[`${uid}_${key}`]; save(); },
   };
 }
